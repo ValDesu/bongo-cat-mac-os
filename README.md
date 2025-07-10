@@ -40,18 +40,27 @@ REMOVE_DECORATIONS = False    # Set to True for transparent background
 ```
 
 ### Custom Themes
-Create your own Bongo Cat themes by making custom `.gif` images! The naming convention is:
-- `00.gif` - Default state (no keys pressed)
-- `01.gif` - Right hand active
-- `02.gif` - Right hand very active
-- `10.gif` - Left hand active
-- `11.gif` - Both hands active
-- `12.gif` - Left active, right very active
-- `20.gif` - Left hand very active
-- `21.gif` - Left very active, right active
-- `22.gif` - Both hands very active
+Create your own Bongo Cat themes by making custom `.gif` images! 
 
-Place your custom `.gif` files in the `img/` folder. If you create awesome themes, don't hesitate to share them with the community!
+**Switching Themes**: Change the `THEME` constant in `main.py` to use different themes:
+```python
+THEME = "default"    # Use the default theme
+THEME = "nyao"       # Use the nyao theme
+THEME = "your_theme" # Use your custom theme
+```
+
+**Creating New Themes**: The naming convention for theme files is:
+- `00.gif` - Default state          ( no keys pressed )
+- `01.gif` - Right hand active      ( inner keys )
+- `02.gif` - Right hand active      ( outer keys )
+- `10.gif` - Left hand active       ( outer keys )
+- `11.gif` - Both hands active      ( innet + outer keys )
+- `12.gif` - Both hands active      ( outer keys )
+- `20.gif` - Left hand active       ( inner keys )  
+- `21.gif` - Both hands active      ( inner keys )
+- `22.gif` - Both hands active      ( outer + inner keys )
+
+Place your custom `.gif` files in a new folder under `img/your_theme_name/`. The application already includes two themes: `default` and `nyao`. If you create awesome themes, don't hesitate to share them with the community!
 
 ### Streaming with OBS
 ![OBS Example](examples/obs.png)

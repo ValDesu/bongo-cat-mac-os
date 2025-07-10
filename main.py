@@ -16,6 +16,7 @@ except ImportError:
 # Set these to True to enable the features
 ALWAYS_ON_TOP = False
 REMOVE_DECORATIONS = False
+THEME = "default"
 # ---------------------
 
 
@@ -127,7 +128,7 @@ class BongoCatApp(QWidget):
     def load_images(self):
         """Loads all required GIF images from the 'img' folder."""
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        res_path = os.path.join(script_dir, "img")
+        res_path = os.path.join(script_dir, "img", THEME)
         print(f"Loading images from: {res_path}")
 
         if not os.path.isdir(res_path):
