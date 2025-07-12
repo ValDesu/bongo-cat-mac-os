@@ -35,9 +35,14 @@ Without this permission, the keystroke detection won't work!
 You can customize the appearance by changing the constants at the beginning of `main.py`:
 
 ```python
-ALWAYS_ON_TOP = False    # Set to True to keep window always visible
-REMOVE_DECORATIONS = False    # Set to True for transparent background
+ALWAYS_ON_TOP = False      # Set to True to keep window always visible
+REMOVE_DECORATIONS = True  # Set to True for transparent background (enables drag-to-move)
+SCALE = 1                  # Scale factor for images (1 = original size, 0.5 = half size, 2 = double size)
 ```
+
+- **Always on Top**: When enabled, the Bongo Cat window stays above all other windows
+- **Remove Decorations**: Creates a frameless, transparent window. When enabled, you can click and drag the cat around your screen since there's no title bar to grab
+- **Scaling**: Adjust the size of the Bongo Cat. Perfect for fitting it in a corner or making it more prominent on your screen
 
 ### Custom Themes
 Create your own Bongo Cat themes by making custom `.gif` images! 
@@ -65,7 +70,7 @@ Place your custom `.gif` files in a new folder under `img/your_theme_name/`. The
 ### Streaming with OBS
 ![OBS Example](examples/obs.png)
 
-Perfect for streamers! The application works great as an overlay in OBS Studio. Set `REMOVE_DECORATIONS = True` and `ALWAYS_ON_TOP = True` for the best streaming experience.
+Perfect for streamers! The application works great as an overlay in OBS Studio. Set `REMOVE_DECORATIONS = True` and `ALWAYS_ON_TOP = True` for the best streaming experience. You can also adjust the `SCALE` to make the cat smaller or larger to fit your streaming layout perfectly.
 
 ## 🚧 Current Limitations
 

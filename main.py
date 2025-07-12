@@ -15,8 +15,9 @@ except ImportError:
 # --- Configuration ---
 # Set these to True to enable the features
 ALWAYS_ON_TOP = False
-REMOVE_DECORATIONS = False
+REMOVE_DECORATIONS = True
 THEME = "default"
+SCALE = 0.5
 # ---------------------
 
 
@@ -122,6 +123,10 @@ class BongoCatApp(QWidget):
             # The error message is shown in load_images()
             sys.exit(1) # Exit if default image is missing
 
+        # Variables for window dragging
+        self.dragging = False
+        self.drag_position = None
+
         self.init_ui()
         self.init_key_listener()
 
@@ -157,8 +162,8 @@ class BongoCatApp(QWidget):
         # We need to start the movie to get a valid frame rect
         default_movie = self.images[0][0]
         default_movie.start()
-        width = default_movie.frameRect().width()
-        height = default_movie.frameRect().height()
+        width = int(default_movie.frameRect().width() * SCALE)
+        height = int(default_movie.frameRect().height() * SCALE)
         default_movie.stop()
 
         self.setGeometry(100, 100, width, height)
@@ -179,6 +184,9 @@ class BongoCatApp(QWidget):
         # Create a label to display the animation
         self.label = QLabel(self)
         self.label.setGeometry(0, 0, width, height)
+        # Scale the label content if needed
+        if SCALE != 1:
+            self.label.setScaledContents(True)
         self.update_image(0, 0) # Set initial image
         
         self.show()
@@ -219,6 +227,25 @@ class BongoCatApp(QWidget):
         msg_box.setInformativeText(message)
         msg_box.setWindowTitle("Error")
         msg_box.exec()
+
+    def mousePressEvent(self, event):
+        """Handle mouse press events for window dragging."""
+        if REMOVE_DECORATIONS and event.button() == Qt.MouseButton.LeftButton:
+            self.dragging = True
+            self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        """Handle mouse move events for window dragging."""
+        if REMOVE_DECORATIONS and self.dragging and event.buttons() == Qt.MouseButton.LeftButton:
+            self.move(event.globalPosition().toPoint() - self.drag_position)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        """Handle mouse release events for window dragging."""
+        if REMOVE_DECORATIONS and event.button() == Qt.MouseButton.LeftButton:
+            self.dragging = False
+            event.accept()
 
 def main():
     if not MACOS_AVAILABLE or sys.platform != "darwin":
