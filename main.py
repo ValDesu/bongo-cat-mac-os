@@ -2,8 +2,8 @@ import sys
 import os
 import threading
 from PyQt6.QtWidgets import QApplication, QWidget, QLabel, QMessageBox
-from PyQt6.QtGui import QPixmap, QMovie
-from PyQt6.QtCore import Qt, pyqtSignal, QObject
+from PyQt6.QtGui import QPixmap, QMovie, QFont
+from PyQt6.QtCore import Qt, pyqtSignal, QObject, QTimer
 
 # macOS specific imports for key logging
 try:
@@ -172,6 +172,10 @@ class BongoCatApp(QWidget):
             'THEME': THEME,
             'SCALE': SCALE
         }
+        
+        # Help overlay
+        self.help_overlay = None
+        self.help_visible = False
         
         # Load images first. If loading fails, we can't proceed.
         self.images = self.load_images()
@@ -390,15 +394,345 @@ class BongoCatApp(QWidget):
         self.move(current_pos)
         self.show()
 
+    def adjust_scale(self, delta):
+        """Adjust the scale by the given delta and apply changes."""
+        global SCALE
+        new_scale = SCALE + delta
+        
+        # Clamp scale to reasonable bounds (0.1 to 5.0)
+        new_scale = max(0.1, min(5.0, new_scale))
+        
+        if new_scale != SCALE:
+            old_scale = SCALE
+            SCALE = new_scale
+            self.current_config['SCALE'] = SCALE
+            
+            print(f"Scale changed from {old_scale:.1f} to {SCALE:.1f}")
+            self.apply_scale_changes()
+            
+            # Update the settings.env file to persist the change
+            self.update_settings_file()
+        else:
+            print(f"Scale already at bounds (current: {SCALE:.1f})")
+
+    def update_settings_file(self):
+        """Update the settings.env file with current configuration."""
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        settings_path = os.path.join(script_dir, 'settings.env')
+        
+        try:
+            # Read current file contents
+            lines = []
+            if os.path.exists(settings_path):
+                with open(settings_path, 'r') as f:
+                    lines = f.readlines()
+            
+            # Update or add configuration values
+            config_keys = {'ALWAYS_ON_TOP', 'REMOVE_DECORATIONS', 'THEME', 'SCALE'}
+            updated_keys = set()
+            
+            for i, line in enumerate(lines):
+                stripped = line.strip()
+                if stripped and not stripped.startswith('#') and '=' in stripped:
+                    key = stripped.split('=', 1)[0].strip()
+                    if key in config_keys:
+                        if key == 'ALWAYS_ON_TOP':
+                            lines[i] = f"ALWAYS_ON_TOP={'true' if self.current_config['ALWAYS_ON_TOP'] else 'false'}\n"
+                        elif key == 'REMOVE_DECORATIONS':
+                            lines[i] = f"REMOVE_DECORATIONS={'true' if self.current_config['REMOVE_DECORATIONS'] else 'false'}\n"
+                        elif key == 'THEME':
+                            lines[i] = f"THEME={self.current_config['THEME']}\n"
+                        elif key == 'SCALE':
+                            lines[i] = f"SCALE={self.current_config['SCALE']}\n"
+                        updated_keys.add(key)
+            
+            # Add any missing keys
+            missing_keys = config_keys - updated_keys
+            if missing_keys:
+                if lines and not lines[-1].endswith('\n'):
+                    lines.append('\n')
+                for key in missing_keys:
+                    if key == 'ALWAYS_ON_TOP':
+                        lines.append(f"ALWAYS_ON_TOP={'true' if self.current_config['ALWAYS_ON_TOP'] else 'false'}\n")
+                    elif key == 'REMOVE_DECORATIONS':
+                        lines.append(f"REMOVE_DECORATIONS={'true' if self.current_config['REMOVE_DECORATIONS'] else 'false'}\n")
+                    elif key == 'THEME':
+                        lines.append(f"THEME={self.current_config['THEME']}\n")
+                    elif key == 'SCALE':
+                        lines.append(f"SCALE={self.current_config['SCALE']}\n")
+            
+            # Write back to file
+            with open(settings_path, 'w') as f:
+                f.writelines(lines)
+                
+        except Exception as e:
+            print(f"Warning: Could not update settings.env: {e}")
+
+    def get_available_themes(self):
+        """Get a list of available theme folders."""
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        img_dir = os.path.join(script_dir, "img")
+        
+        if not os.path.exists(img_dir):
+            return []
+        
+        themes = []
+        for item in os.listdir(img_dir):
+            theme_path = os.path.join(img_dir, item)
+            if os.path.isdir(theme_path):
+                # Check if it has at least the default 00.gif file
+                default_gif = os.path.join(theme_path, "00.gif")
+                if os.path.exists(default_gif):
+                    themes.append(item)
+        
+        return sorted(themes)
+
+    def cycle_theme(self):
+        """Cycle to the next available theme."""
+        available_themes = self.get_available_themes()
+        
+        if len(available_themes) <= 1:
+            print("No other themes available to cycle through.")
+            return
+        
+        global THEME
+        current_index = 0
+        
+        # Find current theme index
+        try:
+            current_index = available_themes.index(THEME)
+        except ValueError:
+            print(f"Current theme '{THEME}' not found in available themes, starting from first theme.")
+        
+        # Move to next theme (cycle back to start if at end)
+        next_index = (current_index + 1) % len(available_themes)
+        new_theme = available_themes[next_index]
+        
+        # Update theme
+        old_theme = THEME
+        THEME = new_theme
+        self.current_config['THEME'] = THEME
+        
+        print(f"Theme changed from '{old_theme}' to '{THEME}' ({next_index + 1}/{len(available_themes)})")
+        
+        # Reload images for new theme
+        new_images = self.load_images()
+        if new_images and new_images[0][0]:
+            self.images = new_images
+            # Update current display with new theme
+            self.update_image(0, 0)  # Reset to default state
+            
+            # Update the settings.env file to persist the change
+            self.update_settings_file()
+        else:
+            # Revert if loading failed
+            THEME = old_theme
+            self.current_config['THEME'] = THEME
+            print(f"Warning: Could not load theme '{new_theme}', reverted to '{old_theme}'.")
+
+    def create_help_overlay(self):
+        """Create the help overlay widget."""
+        if self.help_overlay is not None:
+            return
+            
+        # Create overlay widget
+        self.help_overlay = QLabel(self)
+        
+        # Set up the help text
+        help_text = """
+🐱 Bongo Cat - Keyboard Shortcuts
+
+⌨️  Controls:
+• Ctrl+R (⌘+R)  -  Reload settings from settings.env
+• Ctrl+U (⌘+U)  -  Upscale (+0.1)
+• Ctrl+D (⌘+D)  -  Downscale (-0.1)
+• Ctrl+T (⌘+T)  -  Cycle through themes
+• Ctrl+H (⌘+H)  -  Show/hide this help
+
+🎨  Current Settings:
+• Theme: {theme}
+• Scale: {scale}
+• Always on Top: {always_on_top}
+• Decorations: {decorations}
+
+💡  Tips:
+• Drag the cat around when decorations are off
+• All changes auto-save to settings.env
+• Edit settings.env manually and press Ctrl+R to reload
+
+Press Ctrl+H (⌘+H) again to close this help
+        """.format(
+            theme=THEME,
+            scale=f"{SCALE:.1f}",
+            always_on_top="Yes" if ALWAYS_ON_TOP else "No",
+            decorations="Hidden" if REMOVE_DECORATIONS else "Visible"
+        ).strip()
+        
+        self.help_overlay.setText(help_text)
+        
+        # Style the overlay
+        self.help_overlay.setStyleSheet("""
+            QLabel {
+                background-color: rgba(0, 0, 0, 180);
+                color: white;
+                font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+                font-size: 11px;
+                padding: 15px;
+                border-radius: 8px;
+                line-height: 1.3;
+            }
+        """)
+        
+        # Set font
+        font = QFont("SF Mono", 11)
+        if not font.exactMatch():
+            font = QFont("Monaco", 11)
+        if not font.exactMatch():
+            font = QFont("Menlo", 11)
+        if not font.exactMatch():
+            font = QFont("Courier", 11)
+        self.help_overlay.setFont(font)
+        
+        # Set alignment and word wrap
+        self.help_overlay.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.help_overlay.setWordWrap(True)
+        self.help_overlay.setScaledContents(False)
+        
+        # Allow the label to resize to fit content
+        self.help_overlay.setSizePolicy(
+            self.help_overlay.sizePolicy().horizontalPolicy(),
+            self.help_overlay.sizePolicy().verticalPolicy()
+        )
+        
+        # Position and size the overlay
+        self.position_help_overlay()
+        
+        # Hide initially
+        self.help_overlay.hide()
+
+    def position_help_overlay(self):
+        """Position the help overlay in the center of the window."""
+        if self.help_overlay is None:
+            return
+            
+        # Calculate the size needed for the content
+        self.help_overlay.adjustSize()  # Let Qt calculate the optimal size
+        content_width = self.help_overlay.width()
+        content_height = self.help_overlay.height()
+        
+        # Set minimum size but allow expansion for content
+        window_width = self.width()
+        window_height = self.height()
+        
+        # Use content size but ensure it fits within reasonable bounds
+        min_width = 400
+        min_height = 350
+        max_width = max(window_width - 40, min_width)
+        max_height = max(window_height - 40, min_height)
+        
+        # Use the larger of content size or minimum size, but cap at maximum
+        overlay_width = min(max(content_width + 40, min_width), max_width)
+        overlay_height = min(max(content_height + 40, min_height), max_height)
+        
+        # Center the overlay
+        x = (window_width - overlay_width) // 2
+        y = (window_height - overlay_height) // 2
+        
+        self.help_overlay.setGeometry(x, y, overlay_width, overlay_height)
+
+    def toggle_help(self):
+        """Toggle the visibility of the help overlay."""
+        if self.help_overlay is None:
+            self.create_help_overlay()
+        
+        self.help_visible = not self.help_visible
+        
+        if self.help_visible:
+            # Update the help text with current settings
+            self.update_help_text()
+            self.position_help_overlay()
+            self.help_overlay.show()
+            self.help_overlay.raise_()  # Bring to front
+            print("Help overlay shown")
+        else:
+            self.help_overlay.hide()
+            print("Help overlay hidden")
+
+    def update_help_text(self):
+        """Update the help overlay text with current settings."""
+        if self.help_overlay is None:
+            return
+            
+        help_text = """
+🐱 Bongo Cat - Keyboard Shortcuts
+
+⌨️  Controls:
+• Ctrl+R (⌘+R)  -  Reload settings from settings.env
+• Ctrl+U (⌘+U)  -  Upscale (+0.1)
+• Ctrl+D (⌘+D)  -  Downscale (-0.1)
+• Ctrl+T (⌘+T)  -  Cycle through themes
+• Ctrl+H (⌘+H)  -  Show/hide this help
+
+🎨  Current Settings:
+• Theme: {theme}
+• Scale: {scale}
+• Always on Top: {always_on_top}
+• Decorations: {decorations}
+
+💡  Tips:
+• Drag the cat around when decorations are off
+• All changes auto-save to settings.env
+• Edit settings.env manually and press Ctrl+R to reload
+
+Press Ctrl+H (⌘+H) again to close this help
+        """.format(
+            theme=THEME,
+            scale=f"{SCALE:.1f}",
+            always_on_top="Yes" if ALWAYS_ON_TOP else "No",
+            decorations="Hidden" if REMOVE_DECORATIONS else "Visible"
+        ).strip()
+        
+        self.help_overlay.setText(help_text)
+
     def keyPressEvent(self, event):
         """Handle keyboard shortcuts."""
-        # Check for Ctrl+R (or Cmd+R on macOS)
-        if event.key() == Qt.Key.Key_R and (event.modifiers() & Qt.KeyboardModifier.ControlModifier or 
-                                           event.modifiers() & Qt.KeyboardModifier.MetaModifier):
-            self.reload_settings()
-            event.accept()
-        else:
-            super().keyPressEvent(event)
+        ctrl_or_cmd = (event.modifiers() & Qt.KeyboardModifier.ControlModifier or 
+                       event.modifiers() & Qt.KeyboardModifier.MetaModifier)
+        
+        if ctrl_or_cmd:
+            if event.key() == Qt.Key.Key_R:
+                # Ctrl+R: Reload settings
+                self.reload_settings()
+                event.accept()
+                return
+            elif event.key() == Qt.Key.Key_U:
+                # Ctrl+U: Upscale (increase by 0.1)
+                self.adjust_scale(0.1)
+                event.accept()
+                return
+            elif event.key() == Qt.Key.Key_D:
+                # Ctrl+D: Downscale (decrease by 0.1)
+                self.adjust_scale(-0.1)
+                event.accept()
+                return
+            elif event.key() == Qt.Key.Key_T:
+                # Ctrl+T: Cycle theme
+                self.cycle_theme()
+                event.accept()
+                return
+            elif event.key() == Qt.Key.Key_H:
+                # Ctrl+H: Toggle help overlay
+                self.toggle_help()
+                event.accept()
+                return
+        
+        super().keyPressEvent(event)
+
+    def resizeEvent(self, event):
+        """Handle window resize events to reposition help overlay."""
+        super().resizeEvent(event)
+        if self.help_overlay is not None and self.help_visible:
+            self.position_help_overlay()
 
 def main():
     if not MACOS_AVAILABLE or sys.platform != "darwin":

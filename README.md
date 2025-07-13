@@ -52,6 +52,18 @@ The application uses a `settings.env` file for configuration, which allows you t
 
 3. **Live reload**: Press **Ctrl+R** (or **Cmd+R**) while the application is running to reload your settings instantly! No need to restart the application.
 
+### ⌨️ Keyboard Shortcuts
+While the application is running, you can use these keyboard shortcuts:
+
+- **Ctrl+H** (or **Cmd+H**): Show/hide help overlay with all shortcuts
+- **Ctrl+R** (or **Cmd+R**): Reload settings from `settings.env`
+- **Ctrl+U** (or **Cmd+U**): Upscale - increase size by 0.1
+- **Ctrl+D** (or **Cmd+D**): Downscale - decrease size by 0.1  
+- **Ctrl+T** (or **Cmd+T**): Cycle through available themes
+
+
+All changes are automatically saved to your `settings.env` file!
+
 ### Configuration Options
 - **Always on Top**: When enabled, the Bongo Cat window stays above all other windows
 - **Remove Decorations**: Creates a frameless, transparent window. When enabled, you can click and drag the cat around your screen since there's no title bar to grab
