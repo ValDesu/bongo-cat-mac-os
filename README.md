@@ -2,7 +2,7 @@
 
 A cute animated cat that bongs along to your typing! This macOS application displays an adorable cat animation that responds to your keyboard input in real-time.
 
-![Bongo Cat Demo](examples/default.png)
+![Bongo Cat Demo](examples/default.gif)
 
 ## 🚀 Quick Start
 
