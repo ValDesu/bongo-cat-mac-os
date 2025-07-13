@@ -12,12 +12,60 @@ try:
 except ImportError:
     MACOS_AVAILABLE = False
 
-# --- Configuration ---
-# Set these to True to enable the features
-ALWAYS_ON_TOP = False
-REMOVE_DECORATIONS = True
-THEME = "default"
-SCALE = 0.5
+# --- Configuration Loading ---
+def load_config():
+    """Load configuration from settings.env file with fallback defaults."""
+    config = {
+        'ALWAYS_ON_TOP': False,
+        'REMOVE_DECORATIONS': True,
+        'THEME': 'nyao',
+        'SCALE': 1
+    }
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    settings_path = os.path.join(script_dir, 'settings.env')
+    
+    if os.path.exists(settings_path):
+        try:
+            with open(settings_path, 'r') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        if '=' in line:
+                            key, value = line.split('=', 1)
+                            key = key.strip()
+                            value = value.strip()
+                            
+                            # Convert string values to appropriate types
+                            if key in config:
+                                if isinstance(config[key], bool):
+                                    config[key] = value.lower() in ('true', '1', 'yes', 'on')
+                                elif isinstance(config[key], int):
+                                    try:
+                                        config[key] = int(value)
+                                    except ValueError:
+                                        print(f"Warning: Invalid integer value for {key}: {value}")
+                                elif isinstance(config[key], float):
+                                    try:
+                                        config[key] = float(value)
+                                    except ValueError:
+                                        print(f"Warning: Invalid float value for {key}: {value}")
+                                else:
+                                    config[key] = value
+        except Exception as e:
+            print(f"Warning: Error reading settings.env: {e}")
+            print("Using default configuration values.")
+    else:
+        print("settings.env not found, using default configuration values.")
+    
+    return config
+
+# Load configuration
+_config = load_config()
+ALWAYS_ON_TOP = _config['ALWAYS_ON_TOP']
+REMOVE_DECORATIONS = _config['REMOVE_DECORATIONS']
+THEME = _config['THEME']
+SCALE = _config['SCALE']
 # ---------------------
 
 
@@ -117,6 +165,14 @@ class BongoCatApp(QWidget):
     def __init__(self):
         super().__init__()
         
+        # Store current config for comparison
+        self.current_config = {
+            'ALWAYS_ON_TOP': ALWAYS_ON_TOP,
+            'REMOVE_DECORATIONS': REMOVE_DECORATIONS,
+            'THEME': THEME,
+            'SCALE': SCALE
+        }
+        
         # Load images first. If loading fails, we can't proceed.
         self.images = self.load_images()
         if not self.images or not self.images[0][0]:
@@ -189,6 +245,9 @@ class BongoCatApp(QWidget):
             self.label.setScaledContents(True)
         self.update_image(0, 0) # Set initial image
         
+        # Enable keyboard focus for shortcuts
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        
         self.show()
 
     def init_key_listener(self):
@@ -246,6 +305,100 @@ class BongoCatApp(QWidget):
         if REMOVE_DECORATIONS and event.button() == Qt.MouseButton.LeftButton:
             self.dragging = False
             event.accept()
+
+    def reload_settings(self):
+        """Reload settings from settings.env and apply changes."""
+        print("Reloading settings...")
+        
+        # Load new configuration
+        new_config = load_config()
+        
+        # Check what changed
+        theme_changed = new_config['THEME'] != self.current_config['THEME']
+        scale_changed = new_config['SCALE'] != self.current_config['SCALE']
+        always_on_top_changed = new_config['ALWAYS_ON_TOP'] != self.current_config['ALWAYS_ON_TOP']
+        decorations_changed = new_config['REMOVE_DECORATIONS'] != self.current_config['REMOVE_DECORATIONS']
+        
+        # Update global variables
+        global ALWAYS_ON_TOP, REMOVE_DECORATIONS, THEME, SCALE
+        ALWAYS_ON_TOP = new_config['ALWAYS_ON_TOP']
+        REMOVE_DECORATIONS = new_config['REMOVE_DECORATIONS']
+        THEME = new_config['THEME']
+        SCALE = new_config['SCALE']
+        
+        # Update stored config
+        self.current_config = new_config.copy()
+        
+        # Apply changes that require UI updates
+        if theme_changed:
+            print(f"Theme changed to: {THEME}")
+            # Reload images for new theme
+            new_images = self.load_images()
+            if new_images and new_images[0][0]:
+                self.images = new_images
+                # Update current display with new theme
+                self.update_image(0, 0)  # Reset to default state
+            else:
+                print(f"Warning: Could not load theme '{THEME}', keeping current theme.")
+        
+        if scale_changed:
+            print(f"Scale changed to: {SCALE}")
+            self.apply_scale_changes()
+        
+        if always_on_top_changed or decorations_changed:
+            print("Window flags changed, applying...")
+            self.apply_window_flag_changes()
+        
+        print("Settings reloaded successfully!")
+
+    def apply_scale_changes(self):
+        """Apply scale changes to the window and label."""
+        if self.images and self.images[0][0]:
+            default_movie = self.images[0][0]
+            default_movie.start()
+            width = int(default_movie.frameRect().width() * SCALE)
+            height = int(default_movie.frameRect().height() * SCALE)
+            default_movie.stop()
+            
+            self.resize(width, height)
+            self.label.setGeometry(0, 0, width, height)
+            
+            # Update scaled contents setting
+            self.label.setScaledContents(SCALE != 1)
+
+    def apply_window_flag_changes(self):
+        """Apply window flag changes (always on top, decorations)."""
+        flags = Qt.WindowType.Widget
+        if REMOVE_DECORATIONS:
+            flags |= Qt.WindowType.FramelessWindowHint
+        if ALWAYS_ON_TOP:
+            flags |= Qt.WindowType.WindowStaysOnTopHint
+        
+        # Store current position
+        current_pos = self.pos()
+        
+        # Apply new flags
+        self.setWindowFlags(flags)
+        
+        # Set transparency based on decorations setting
+        if REMOVE_DECORATIONS:
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        else:
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, False)
+        
+        # Restore position and show window
+        self.move(current_pos)
+        self.show()
+
+    def keyPressEvent(self, event):
+        """Handle keyboard shortcuts."""
+        # Check for Ctrl+R (or Cmd+R on macOS)
+        if event.key() == Qt.Key.Key_R and (event.modifiers() & Qt.KeyboardModifier.ControlModifier or 
+                                           event.modifiers() & Qt.KeyboardModifier.MetaModifier):
+            self.reload_settings()
+            event.accept()
+        else:
+            super().keyPressEvent(event)
 
 def main():
     if not MACOS_AVAILABLE or sys.platform != "darwin":

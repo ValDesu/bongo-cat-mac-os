@@ -31,28 +31,43 @@ Without this permission, the keystroke detection won't work!
 
 ## ⚙️ Customization
 
-### Window Settings
-You can customize the appearance by changing the constants at the beginning of `main.py`:
+### Configuration Setup
+The application uses a `settings.env` file for configuration, which allows you to customize settings without affecting the git repository.
 
-```python
-ALWAYS_ON_TOP = False      # Set to True to keep window always visible
-REMOVE_DECORATIONS = True  # Set to True for transparent background (enables drag-to-move)
-SCALE = 1                  # Scale factor for images (1 = original size, 0.5 = half size, 2 = double size)
-```
+1. **First time setup**: Copy the example configuration:
+   ```bash
+   cp settings.env.example settings.env
+   ```
 
+2. **Edit your settings**: Open `settings.env` and modify the values:
+   ```bash
+   # Window settings
+   ALWAYS_ON_TOP=false          # Keep window always on top (true/false)
+   REMOVE_DECORATIONS=true      # Remove window decorations for transparency (true/false)
+   
+   # Appearance settings
+   THEME=default                # Theme folder name (default, nyao, or custom)
+   SCALE=1                      # Scale factor for window size (1 = original size)
+   ```
+
+3. **Live reload**: Press **Ctrl+R** (or **Cmd+R**) while the application is running to reload your settings instantly! No need to restart the application.
+
+### Configuration Options
 - **Always on Top**: When enabled, the Bongo Cat window stays above all other windows
 - **Remove Decorations**: Creates a frameless, transparent window. When enabled, you can click and drag the cat around your screen since there's no title bar to grab
-- **Scaling**: Adjust the size of the Bongo Cat. Perfect for fitting it in a corner or making it more prominent on your screen
+- **Theme**: Choose which theme folder to use for animations (see Custom Themes section below)
+- **Scale**: Adjust the size of the Bongo Cat. Perfect for fitting it in a corner or making it more prominent on your screen (0.5 = half size, 2 = double size, etc.)
 
 ### Custom Themes
 Create your own Bongo Cat themes by making custom `.gif` images! 
 
-**Switching Themes**: Change the `THEME` constant in `main.py` to use different themes:
-```python
-THEME = "default"    # Use the default theme
-THEME = "nyao"       # Use the nyao theme
-THEME = "your_theme" # Use your custom theme
+**Switching Themes**: Change the `THEME` setting in your `settings.env` file:
+```bash
+THEME=default      # Use the default theme
+THEME=nyao         # Use the nyao theme  
+THEME=your_theme   # Use your custom theme
 ```
+Then press **Ctrl+R** (or **Cmd+R**) to reload and see your new theme instantly!
 
 **Creating New Themes**: The naming convention for theme files is:
 - `00.gif` - Default state          ( no keys pressed )
@@ -70,7 +85,18 @@ Place your custom `.gif` files in a new folder under `img/your_theme_name/`. The
 ### Streaming with OBS
 ![OBS Example](examples/obs.png)
 
-Perfect for streamers! The application works great as an overlay in OBS Studio. Set `REMOVE_DECORATIONS = True` and `ALWAYS_ON_TOP = True` for the best streaming experience. You can also adjust the `SCALE` to make the cat smaller or larger to fit your streaming layout perfectly.
+Perfect for streamers! The application works great as an overlay in OBS Studio. For the best streaming experience:
+
+1. Set your `settings.env` configuration:
+   ```bash
+   REMOVE_DECORATIONS=true
+   ALWAYS_ON_TOP=true
+   SCALE=0.8                    # Adjust size to fit your layout
+   ```
+
+2. Press **Ctrl+R** (or **Cmd+R**) to apply changes instantly while streaming
+
+You can also adjust the `SCALE` in real-time to make the cat smaller or larger to fit your streaming layout perfectly without interrupting your stream!
 
 ## 🚧 Current Limitations
 
